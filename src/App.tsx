@@ -175,6 +175,17 @@ export default function App() {
         setResults(updatedResults);
         setAlreadyUsed(true);
         setJustPlayed(true);
+        await fetch("https://hook.us2.make.com/yp5pxz32ohtxkbkwm5e1fksebba8e1gx", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        body: JSON.stringify({
+          user: participant.name,
+          group: selectedGroup.name,
+          teams: selectedGroup.teams,
+        }),
+      });
       });
     } catch (error) {
       alert((error as Error).message);
