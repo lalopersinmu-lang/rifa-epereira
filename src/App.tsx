@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { Wheel } from "react-custom-roulette";
-import { doc, getDoc, runTransaction } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  runTransaction,
+  setDoc,
+  collection,
+  getDocs,
+  deleteDoc,
+} from "firebase/firestore";
 import { db } from "./firebase";
 
 type Group = { name: string; teams: string[] };
@@ -50,7 +58,14 @@ export default function App() {
   const [alreadyUsed, setAlreadyUsed] = useState(false);
   const [justPlayed, setJustPlayed] = useState(false);
 
+  const isAdmin = window.location.pathname === "/admin-reset";
+
   useEffect(() => {
+    if (isAdmin) {
+      setLoading(false);
+      return;
+    }
+
     async function load() {
       try {
         const slug = window.location.pathname.replace("/", "").trim().toLowerCase();
@@ -91,23 +106,14 @@ export default function App() {
     }
 
     load();
-  }, []);
+  }, [isAdmin]);
 
   const currentTurn = results.length + 1;
   const isUsersTurn = participant && participant.order === currentTurn;
   const data = groups.map((group) => ({ option: group.name }));
 
   function spinWheel() {
-    if (
-      !participant ||
-      spectatorMode ||
-      alreadyUsed ||
-      !isUsersTurn ||
-      mustSpin ||
-      groups.length === 0
-    ) {
-      return;
-    }
+    if (!participant || spectatorMode || alreadyUsed || !isUsersTurn || mustSpin || groups.length === 0) return;
 
     const randomIndex = Math.floor(Math.random() * groups.length);
     setPrizeNumber(randomIndex);
@@ -175,20 +181,70 @@ export default function App() {
     }
   }
 
-  if (loading) {
+  async function resetRaffle() {
+    const ok = confirm("¿Seguro que quieres resetear toda la rifa?");
+    if (!ok) return;
+
+    const participantsSnapshot = await getDocs(collection(db, "participants"));
+
+    for (const participantDoc of participantsSnapshot.docs) {
+      await deleteDoc(doc(db, "participants", participantDoc.id));
+    }
+
+    await setDoc(doc(db, "raffle", "state"), {
+      remainingGroups: initialGroups,
+      results: [],
+    });
+
+    alert("🔥 Rifa reiniciada");
+    window.location.reload();
+  }
+
+  if (isAdmin) {
     return (
-      <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>
-        Cargando...
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#000",
+          color: "white",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+          fontFamily: "Arial",
+          padding: 30,
+          textAlign: "center",
+        }}
+      >
+        <h1>🛠 Admin Reset</h1>
+        <p>Este botón reinicia grupos, historial y links utilizados.</p>
+
+        <button
+          onClick={resetRaffle}
+          style={{
+            marginTop: 30,
+            padding: "20px 40px",
+            borderRadius: 20,
+            border: "none",
+            fontSize: 24,
+            cursor: "pointer",
+            fontWeight: "bold",
+            background: "red",
+            color: "white",
+          }}
+        >
+          🔥 RESETEAR RIFA
+        </button>
       </div>
     );
   }
 
+  if (loading) {
+    return <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>Cargando...</div>;
+  }
+
   if (invalidLink) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>
-        ❌ Link inválido.
-      </div>
-    );
+    return <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>❌ Link inválido.</div>;
   }
 
   return (
@@ -295,14 +351,7 @@ export default function App() {
           )}
 
           {spectatorMode && (
-            <div
-              style={{
-                marginTop: 24,
-                background: "rgba(255,255,255,0.08)",
-                padding: 18,
-                borderRadius: 18,
-              }}
-            >
+            <div style={{ marginTop: 24, background: "rgba(255,255,255,0.08)", padding: 18, borderRadius: 18 }}>
               Esta pantalla es solo para ver. Para girar se necesita un link personalizado.
             </div>
           )}
@@ -329,8 +378,7 @@ export default function App() {
             <div
               style={{
                 marginTop: 30,
-                background:
-                  "linear-gradient(135deg, rgba(250,204,21,0.18), rgba(59,130,246,0.18))",
+                background: "linear-gradient(135deg, rgba(250,204,21,0.18), rgba(59,130,246,0.18))",
                 padding: 24,
                 borderRadius: 24,
                 border: "1px solid rgba(250,204,21,0.45)",
@@ -345,27 +393,11 @@ export default function App() {
           )}
         </div>
 
-        <div
-          style={{
-            marginTop: 40,
-            background: "rgba(15,23,42,0.78)",
-            padding: 24,
-            borderRadius: 28,
-            textAlign: "left",
-          }}
-        >
+        <div style={{ marginTop: 40, background: "rgba(15,23,42,0.78)", padding: 24, borderRadius: 28, textAlign: "left" }}>
           <h2>🧾 Historial</h2>
           {results.length === 0 && <p>Aún no hay resultados.</p>}
           {results.map((result, index) => (
-            <div
-              key={index}
-              style={{
-                marginTop: 10,
-                padding: 12,
-                borderRadius: 14,
-                background: "rgba(255,255,255,0.08)",
-              }}
-            >
+            <div key={index} style={{ marginTop: 10, padding: 12, borderRadius: 14, background: "rgba(255,255,255,0.08)" }}>
               👤 <strong>{result.user}</strong> sacó{" "}
               <strong style={{ color: "#facc15" }}>{result.group.name}</strong>
               <div style={{ marginTop: 6, color: "#dbeafe" }}>
@@ -375,27 +407,11 @@ export default function App() {
           ))}
         </div>
 
-        <div
-          style={{
-            marginTop: 28,
-            background: "rgba(15,23,42,0.78)",
-            padding: 24,
-            borderRadius: 28,
-            textAlign: "left",
-          }}
-        >
+        <div style={{ marginTop: 28, background: "rgba(15,23,42,0.78)", padding: 24, borderRadius: 28, textAlign: "left" }}>
           <h2>📋 Grupos restantes</h2>
           {groups.length === 0 && <p>Ya no quedan grupos disponibles.</p>}
           {groups.map((group) => (
-            <div
-              key={group.name}
-              style={{
-                marginTop: 14,
-                padding: 14,
-                borderRadius: 18,
-                background: "rgba(255,255,255,0.08)",
-              }}
-            >
+            <div key={group.name} style={{ marginTop: 14, padding: 14, borderRadius: 18, background: "rgba(255,255,255,0.08)" }}>
               <strong style={{ color: "#facc15", fontSize: 18 }}>{group.name}</strong>
               <div style={{ marginTop: 8, color: "#dbeafe" }}>
                 {group.teams.map((team) => (
