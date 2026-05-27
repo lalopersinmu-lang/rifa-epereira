@@ -52,35 +52,42 @@ export default function App() {
 
   useEffect(() => {
     async function load() {
-      const slug = window.location.pathname.replace("/", "").trim().toLowerCase();
+      try {
+        const slug = window.location.pathname.replace("/", "").trim().toLowerCase();
 
-      if (!slug) {
-        setSpectatorMode(true);
-      } else {
-        const found = participants.find((p) => p.slug === slug);
-        if (!found) {
-          setInvalidLink(true);
-          setLoading(false);
-          return;
+        if (!slug) {
+          setSpectatorMode(true);
+        } else {
+          const found = participants.find((p) => p.slug === slug);
+
+          if (!found) {
+            setInvalidLink(true);
+            return;
+          }
+
+          setParticipant(found);
+
+          const userSnap = await getDoc(doc(db, "participants", found.slug));
+
+          if (userSnap.exists() && userSnap.data().used) {
+            setAlreadyUsed(true);
+            setWinner(userSnap.data().group);
+          }
         }
 
-        setParticipant(found);
+        const stateSnap = await getDoc(doc(db, "raffle", "state"));
 
-        const userSnap = await getDoc(doc(db, "participants", found.slug));
-        if (userSnap.exists() && userSnap.data().used) {
-          setAlreadyUsed(true);
-          setWinner(userSnap.data().group);
+        if (stateSnap.exists()) {
+          const data = stateSnap.data();
+          setGroups(data.remainingGroups || initialGroups);
+          setResults(data.results || []);
         }
+      } catch (error) {
+        console.error("Error cargando Firebase:", error);
+        alert("Error conectando con Firebase. Revisa Firestore Rules.");
+      } finally {
+        setLoading(false);
       }
-
-      const stateSnap = await getDoc(doc(db, "raffle", "state"));
-      if (stateSnap.exists()) {
-        const data = stateSnap.data();
-        setGroups(data.remainingGroups || initialGroups);
-        setResults(data.results || []);
-      }
-
-      setLoading(false);
     }
 
     load();
@@ -88,11 +95,19 @@ export default function App() {
 
   const currentTurn = results.length + 1;
   const isUsersTurn = participant && participant.order === currentTurn;
-
   const data = groups.map((group) => ({ option: group.name }));
 
   function spinWheel() {
-    if (!participant || spectatorMode || alreadyUsed || !isUsersTurn || mustSpin || groups.length === 0) return;
+    if (
+      !participant ||
+      spectatorMode ||
+      alreadyUsed ||
+      !isUsersTurn ||
+      mustSpin ||
+      groups.length === 0
+    ) {
+      return;
+    }
 
     const randomIndex = Math.floor(Math.random() * groups.length);
     setPrizeNumber(randomIndex);
@@ -127,7 +142,9 @@ export default function App() {
         const liveTurn = liveResults.length + 1;
 
         if (participant.order !== liveTurn) {
-          throw new Error(`Todavía no es tu turno. Turno actual: ${liveTurn}. Tu turno: ${participant.order}.`);
+          throw new Error(
+            `Todavía no es tu turno. Turno actual: ${liveTurn}. Tu turno: ${participant.order}.`
+          );
         }
 
         const selectedGroup = liveGroups[prizeNumber];
@@ -159,11 +176,19 @@ export default function App() {
   }
 
   if (loading) {
-    return <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>Cargando...</div>;
+    return (
+      <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>
+        Cargando...
+      </div>
+    );
   }
 
   if (invalidLink) {
-    return <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>❌ Link inválido.</div>;
+    return (
+      <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>
+        ❌ Link inválido.
+      </div>
+    );
   }
 
   return (
@@ -200,7 +225,8 @@ export default function App() {
           </p>
         ) : (
           <p style={{ color: "#cbd5e1", fontSize: 18 }}>
-            Bienvenido <strong>{participant?.name}</strong>. Tu turno es el <strong>{participant?.order}</strong>.
+            Bienvenido <strong>{participant?.name}</strong>. Tu turno es el{" "}
+            <strong>{participant?.order}</strong>.
           </p>
         )}
 
@@ -218,7 +244,13 @@ export default function App() {
             boxShadow: "0 25px 80px rgba(0,0,0,0.55)",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "center", filter: "drop-shadow(0 0 35px rgba(37,99,235,0.8))" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              filter: "drop-shadow(0 0 35px rgba(37,99,235,0.8))",
+            }}
+          >
             <Wheel
               key={groups.length}
               mustStartSpinning={mustSpin}
@@ -263,7 +295,14 @@ export default function App() {
           )}
 
           {spectatorMode && (
-            <div style={{ marginTop: 24, background: "rgba(255,255,255,0.08)", padding: 18, borderRadius: 18 }}>
+            <div
+              style={{
+                marginTop: 24,
+                background: "rgba(255,255,255,0.08)",
+                padding: 18,
+                borderRadius: 18,
+              }}
+            >
               Esta pantalla es solo para ver. Para girar se necesita un link personalizado.
             </div>
           )}
@@ -290,7 +329,8 @@ export default function App() {
             <div
               style={{
                 marginTop: 30,
-                background: "linear-gradient(135deg, rgba(250,204,21,0.18), rgba(59,130,246,0.18))",
+                background:
+                  "linear-gradient(135deg, rgba(250,204,21,0.18), rgba(59,130,246,0.18))",
                 padding: 24,
                 borderRadius: 24,
                 border: "1px solid rgba(250,204,21,0.45)",
@@ -305,11 +345,27 @@ export default function App() {
           )}
         </div>
 
-        <div style={{ marginTop: 40, background: "rgba(15,23,42,0.78)", padding: 24, borderRadius: 28, textAlign: "left" }}>
+        <div
+          style={{
+            marginTop: 40,
+            background: "rgba(15,23,42,0.78)",
+            padding: 24,
+            borderRadius: 28,
+            textAlign: "left",
+          }}
+        >
           <h2>🧾 Historial</h2>
           {results.length === 0 && <p>Aún no hay resultados.</p>}
           {results.map((result, index) => (
-            <div key={index} style={{ marginTop: 10, padding: 12, borderRadius: 14, background: "rgba(255,255,255,0.08)" }}>
+            <div
+              key={index}
+              style={{
+                marginTop: 10,
+                padding: 12,
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.08)",
+              }}
+            >
               👤 <strong>{result.user}</strong> sacó{" "}
               <strong style={{ color: "#facc15" }}>{result.group.name}</strong>
               <div style={{ marginTop: 6, color: "#dbeafe" }}>
@@ -319,11 +375,27 @@ export default function App() {
           ))}
         </div>
 
-        <div style={{ marginTop: 28, background: "rgba(15,23,42,0.78)", padding: 24, borderRadius: 28, textAlign: "left" }}>
+        <div
+          style={{
+            marginTop: 28,
+            background: "rgba(15,23,42,0.78)",
+            padding: 24,
+            borderRadius: 28,
+            textAlign: "left",
+          }}
+        >
           <h2>📋 Grupos restantes</h2>
           {groups.length === 0 && <p>Ya no quedan grupos disponibles.</p>}
           {groups.map((group) => (
-            <div key={group.name} style={{ marginTop: 14, padding: 14, borderRadius: 18, background: "rgba(255,255,255,0.08)" }}>
+            <div
+              key={group.name}
+              style={{
+                marginTop: 14,
+                padding: 14,
+                borderRadius: 18,
+                background: "rgba(255,255,255,0.08)",
+              }}
+            >
               <strong style={{ color: "#facc15", fontSize: 18 }}>{group.name}</strong>
               <div style={{ marginTop: 8, color: "#dbeafe" }}>
                 {group.teams.map((team) => (
