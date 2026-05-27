@@ -284,10 +284,10 @@ export default function App() {
           SORTEO MUNDIAL 2026
         </div>
 
-        <h1 style={{ fontSize: "56px", margin: 0 }}>🎡 Ruleta Mundialista</h1>
+        <h1 style={{ fontSize: "50px", margin: 0 }}>🎡 Ruleta Mundialista</h1>
 
         {spectatorMode ? (
-          <p style={{ color: "#cbd5e1", fontSize: 18 }}>
+          <p style={{ color: "#cbd5e1", fontSize: 15 }}>
             👀 Modo espectador. Aquí se ve el historial y los grupos restantes.
           </p>
         ) : (
