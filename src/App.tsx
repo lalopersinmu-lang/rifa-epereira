@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
 import { Wheel } from "react-custom-roulette";
+import { doc, getDoc, runTransaction } from "firebase/firestore";
+import { db } from "./firebase";
 
 type Group = {
   name: string;
   teams: string[];
+};
+
+type Participant = {
+  slug: string;
+  name: string;
+  order: number;
 };
 
 type Result = {
@@ -11,43 +19,104 @@ type Result = {
   group: Group;
 };
 
-export default function App() {
-  const initialGroups: Group[] = [
-    { name: "Grupo A", teams: ["México", "Japón", "Nigeria", "Países Bajos"] },
-    { name: "Grupo B", teams: ["Brasil", "Corea", "Estados Unidos", "Croacia"] },
-    { name: "Grupo C", teams: ["Argentina", "Canadá", "Marruecos", "Dinamarca"] },
-    { name: "Grupo D", teams: ["España", "Uruguay", "Egipto", "Australia"] },
-    { name: "Grupo E", teams: ["Francia", "Suiza", "Chile", "Senegal"] },
-    { name: "Grupo F", teams: ["Portugal", "Colombia", "Suecia", "Irán"] },
-    { name: "Grupo G", teams: ["Alemania", "Perú", "Camerún", "Serbia"] },
-    { name: "Grupo H", teams: ["Inglaterra", "Polonia", "Costa Rica", "Túnez"] },
-    { name: "Grupo I", teams: ["Italia", "Ecuador", "Ghana", "Ucrania"] },
-    { name: "Grupo J", teams: ["Bélgica", "Paraguay", "Arabia Saudita", "Noruega"] },
-    { name: "Grupo K", teams: ["Croacia", "Panamá", "Japón", "Austria"] },
-    { name: "Grupo L", teams: ["Estados Unidos", "México", "Marruecos", "Dinamarca"] },
-  ];
+const validParticipants: Participant[] = [
+  { slug: "eduardo-p", name: "Eduardo P", order: 1 },
+  { slug: "claudia-s", name: "Claudia S", order: 2 },
+  { slug: "jorge-e", name: "Jorge E", order: 3 },
+  { slug: "coque-e", name: "Coque E", order: 4 },
+  { slug: "daniel-e", name: "Daniel E", order: 5 },
+  { slug: "edith-p", name: "Edith P", order: 6 },
+  { slug: "pilar-p", name: "Pilar P", order: 7 },
+  { slug: "sergio-s", name: "Sergio S", order: 8 },
+  { slug: "carlos", name: "Carlos", order: 9 },
+  { slug: "alejandra-i", name: "Alejandra I", order: 10 },
+  { slug: "jorge-beck", name: "Jorge Beck", order: 11 },
+  { slug: "isaac-e", name: "Isaac E", order: 12 },
+];
 
+const initialGroups: Group[] = [
+  { name: "Grupo A", teams: ["México", "Corea del Sur", "República Checa", "Sudáfrica"] },
+  { name: "Grupo B", teams: ["Canadá", "Qatar", "Suiza", "Bosnia-Herzegovina"] },
+  { name: "Grupo C", teams: ["Brasil", "Haití", "Marruecos", "Escocia"] },
+  { name: "Grupo D", teams: ["Estados Unidos", "Australia", "Paraguay", "Turquía"] },
+  { name: "Grupo E", teams: ["Alemania", "Ecuador", "Costa de Marfil", "Curaçao"] },
+  { name: "Grupo F", teams: ["Países Bajos", "Japón", "Túnez", "Suecia"] },
+  { name: "Grupo G", teams: ["Bélgica", "Egipto", "Irán", "Nueva Zelanda"] },
+  { name: "Grupo H", teams: ["España", "Uruguay", "Arabia Saudita", "Cabo Verde"] },
+  { name: "Grupo I", teams: ["Francia", "Senegal", "Noruega", "Irak"] },
+  { name: "Grupo J", teams: ["Argentina", "Argelia", "Austria", "Jordania"] },
+  { name: "Grupo K", teams: ["Portugal", "Colombia", "Uzbekistán", "RD Congo"] },
+  { name: "Grupo L", teams: ["Inglaterra", "Croacia", "Ghana", "Panamá"] },
+];
+
+export default function App() {
   const [groups, setGroups] = useState<Group[]>(initialGroups);
   const [mustSpin, setMustSpin] = useState(false);
   const [prizeNumber, setPrizeNumber] = useState(0);
   const [winner, setWinner] = useState<Group | null>(null);
-  const [userCode, setUserCode] = useState("invitado");
+  const [participant, setParticipant] = useState<Participant | null>(null);
+  const [invalidLink, setInvalidLink] = useState(false);
+  const [spectatorMode, setSpectatorMode] = useState(false);
+  const [alreadyUsed, setAlreadyUsed] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentTurn, setCurrentTurn] = useState(1);
 
   useEffect(() => {
-    const path = window.location.pathname.replace("/", "").trim();
-    setUserCode(path || "invitado");
+    const slug = window.location.pathname.replace("/", "").trim().toLowerCase();
+
+    if (!slug) {
+      setSpectatorMode(true);
+      loadRaffleState();
+      return;
+    }
+
+    const found = validParticipants.find((p) => p.slug === slug);
+
+    if (!found) {
+      setInvalidLink(true);
+      setLoading(false);
+      return;
+    }
+
+    setParticipant(found);
+    loadRaffleState(found);
   }, []);
+
+  const loadRaffleState = async (foundParticipant?: Participant) => {
+    const stateRef = doc(db, "raffle", "state");
+    const stateSnap = await getDoc(stateRef);
+
+    if (stateSnap.exists()) {
+      const data = stateSnap.data();
+      const savedResults = data.results || [];
+
+      setGroups(data.remainingGroups || initialGroups);
+      setResults(savedResults);
+      setCurrentTurn(savedResults.length + 1);
+    }
+
+    if (foundParticipant) {
+      const participantRef = doc(db, "participants", foundParticipant.slug);
+      const participantSnap = await getDoc(participantRef);
+
+      if (participantSnap.exists() && participantSnap.data().used) {
+        setAlreadyUsed(true);
+        setWinner(participantSnap.data().group);
+      }
+    }
+
+    setLoading(false);
+  };
 
   const data = groups.map((group) => ({
     option: group.name,
   }));
 
-  const spinWheel = () => {
-    if (mustSpin) return;
+  const isUsersTurn = participant && participant.order === currentTurn;
 
-    if (groups.length === 0) {
-      alert("Ya no quedan grupos");
+  const spinWheel = () => {
+    if (!participant || mustSpin || alreadyUsed || !isUsersTurn || groups.length === 0) {
       return;
     }
 
@@ -57,6 +126,85 @@ export default function App() {
     setWinner(null);
     setMustSpin(true);
   };
+
+  const saveResult = async () => {
+    if (!participant) return;
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const stateRef = doc(db, "raffle", "state");
+        const participantRef = doc(db, "participants", participant.slug);
+
+        const stateSnap = await transaction.get(stateRef);
+        const participantSnap = await transaction.get(participantRef);
+
+        if (participantSnap.exists() && participantSnap.data().used) {
+          throw new Error("Este link ya fue utilizado");
+        }
+
+        const currentGroups: Group[] = stateSnap.exists()
+          ? stateSnap.data().remainingGroups || initialGroups
+          : initialGroups;
+
+        const currentResults: Result[] = stateSnap.exists()
+          ? stateSnap.data().results || []
+          : [];
+
+        const liveTurn = currentResults.length + 1;
+
+        if (participant.order !== liveTurn) {
+          throw new Error("Todavía no es tu turno");
+        }
+
+        const selectedGroup = currentGroups[prizeNumber];
+
+        const updatedGroups = currentGroups.filter(
+          (_, index) => index !== prizeNumber
+        );
+
+        const newResult = {
+          user: participant.name,
+          group: selectedGroup,
+        };
+
+        transaction.set(participantRef, {
+          used: true,
+          name: participant.name,
+          order: participant.order,
+          group: selectedGroup,
+        });
+
+        transaction.set(stateRef, {
+          remainingGroups: updatedGroups,
+          results: [newResult, ...currentResults],
+        });
+
+        setWinner(selectedGroup);
+        setGroups(updatedGroups);
+        setResults([newResult, ...currentResults]);
+        setAlreadyUsed(true);
+        setCurrentTurn(liveTurn + 1);
+      });
+    } catch (error) {
+      alert("No se pudo guardar: " + (error as Error).message);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>
+        Cargando...
+      </div>
+    );
+  }
+
+  if (invalidLink) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#111", color: "white", padding: 40 }}>
+        ❌ Link inválido.
+      </div>
+    );
+  }
 
   return (
     <div
@@ -69,54 +217,63 @@ export default function App() {
         padding: "32px 18px",
       }}
     >
-      <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: "28px" }}>
-          <div
-            style={{
-              display: "inline-block",
-              padding: "8px 18px",
-              border: "1px solid rgba(255,255,255,0.25)",
-              borderRadius: "999px",
-              background: "rgba(255,255,255,0.08)",
-              marginBottom: "14px",
-              letterSpacing: "2px",
-              fontSize: "13px",
-            }}
-          >
-            SORTEO MUNDIAL 2026
-          </div>
-
-          <h1
-            style={{
-              fontSize: "56px",
-              margin: 0,
-              textShadow: "0 0 30px rgba(59,130,246,0.8)",
-            }}
-          >
-            🎡 Ruleta Mundialista
-          </h1>
-
-          <p style={{ color: "#cbd5e1", fontSize: "18px" }}>
-            Bienvenido <strong>{userCode}</strong>, gira la ruleta y descubre qué grupo te toca.
-          </p>
-        </div>
-
+      <div style={{ maxWidth: "1100px", margin: "0 auto", textAlign: "center" }}>
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(300px, 1fr) minmax(300px, 420px)",
-            gap: "28px",
-            alignItems: "start",
+            display: "inline-block",
+            padding: "8px 18px",
+            border: "1px solid rgba(255,255,255,0.25)",
+            borderRadius: "999px",
+            background: "rgba(255,255,255,0.08)",
+            marginBottom: "14px",
+            letterSpacing: "2px",
+            fontSize: "13px",
           }}
         >
+          SORTEO MUNDIAL 2026
+        </div>
+
+        <h1 style={{ fontSize: "56px", margin: 0 }}>🎡 Ruleta Mundialista</h1>
+
+        {spectatorMode ? (
+          <p style={{ color: "#cbd5e1", fontSize: "18px" }}>
+            Modo espectador: aquí puedes ver el historial y los grupos restantes.
+          </p>
+        ) : (
+          <p style={{ color: "#cbd5e1", fontSize: "18px" }}>
+            Bienvenido <strong>{participant?.name}</strong>. Tu turno es el{" "}
+            <strong>{participant?.order}</strong>.
+          </p>
+        )}
+
+        <p style={{ color: "#facc15", fontSize: "18px" }}>
+          Turno actual: <strong>{currentTurn}</strong>
+        </p>
+
+        {!spectatorMode && alreadyUsed && winner ? (
           <div
             style={{
+              marginTop: 30,
+              background: "rgba(255,255,255,0.08)",
+              padding: 30,
+              borderRadius: 24,
+            }}
+          >
+            <h2>Este link ya fue utilizado</h2>
+            <h1 style={{ color: "#facc15" }}>{winner.name}</h1>
+            {winner.teams.map((team) => (
+              <div key={team}>⚽ {team}</div>
+            ))}
+          </div>
+        ) : (
+          <div
+            style={{
+              marginTop: "28px",
               background: "rgba(15,23,42,0.78)",
               border: "1px solid rgba(255,255,255,0.14)",
               borderRadius: "28px",
               padding: "30px",
               boxShadow: "0 25px 80px rgba(0,0,0,0.55)",
-              textAlign: "center",
             }}
           >
             <div
@@ -138,147 +295,149 @@ export default function App() {
                 radiusLineColor="#ffffff"
                 radiusLineWidth={2}
                 fontSize={15}
-                onStopSpinning={() => {
+                onStopSpinning={async () => {
                   setMustSpin(false);
-
-                  const selectedGroup = groups[prizeNumber];
-
-                  setWinner(selectedGroup);
-
-                  setResults((prev) => [
-                    {
-                      user: userCode,
-                      group: selectedGroup,
-                    },
-                    ...prev,
-                  ]);
-
-                  const updatedGroups = groups.filter(
-                    (_, index) => index !== prizeNumber
-                  );
-
-                  setGroups(updatedGroups);
+                  await saveResult();
                 }}
               />
             </div>
 
-            <button
-              onClick={spinWheel}
-              disabled={mustSpin || groups.length === 0}
-              style={{
-                marginTop: "34px",
-                padding: "18px 54px",
-                fontSize: "22px",
-                borderRadius: "999px",
-                border: "none",
-                cursor: mustSpin ? "not-allowed" : "pointer",
-                fontWeight: "bold",
-                color: "#020617",
-                background:
-                  "linear-gradient(135deg, #facc15, #fb923c, #f97316)",
-                boxShadow: "0 0 30px rgba(251,146,60,0.65)",
-              }}
-            >
-              {mustSpin ? "Girando..." : "GIRAR"}
-            </button>
-
-            {winner && (
-              <div
+            {!spectatorMode && (
+              <button
+                onClick={spinWheel}
+                disabled={mustSpin || alreadyUsed || !isUsersTurn}
                 style={{
-                  marginTop: "30px",
+                  marginTop: 34,
+                  padding: "18px 54px",
+                  fontSize: 22,
+                  borderRadius: 999,
+                  border: "none",
+                  cursor:
+                    mustSpin || alreadyUsed || !isUsersTurn
+                      ? "not-allowed"
+                      : "pointer",
+                  fontWeight: "bold",
                   background:
-                    "linear-gradient(135deg, rgba(250,204,21,0.18), rgba(59,130,246,0.18))",
-                  padding: "24px",
-                  borderRadius: "24px",
-                  border: "1px solid rgba(250,204,21,0.45)",
-                  boxShadow: "0 0 35px rgba(250,204,21,0.22)",
+                    mustSpin || alreadyUsed || !isUsersTurn
+                      ? "#64748b"
+                      : "linear-gradient(135deg, #facc15, #fb923c, #f97316)",
                 }}
               >
-                <h2 style={{ margin: 0 }}>🏆 ¡Ganaste!</h2>
-                <h1 style={{ margin: "10px 0", color: "#facc15" }}>
-                  {winner.name}
-                </h1>
+                {mustSpin ? "Girando..." : "GIRAR"}
+              </button>
+            )}
 
-                {winner.teams.map((team) => (
-                  <div key={team} style={{ fontSize: "18px", marginTop: "6px" }}>
-                    ⚽ {team}
-                  </div>
-                ))}
+            {spectatorMode && (
+              <div
+                style={{
+                  marginTop: 24,
+                  background: "rgba(255,255,255,0.08)",
+                  padding: 18,
+                  borderRadius: 18,
+                }}
+              >
+                👀 Esta pantalla es solo para ver. Para girar necesitas un link personalizado.
               </div>
             )}
 
-            <div
-              style={{
-                marginTop: "28px",
-                background: "rgba(0,0,0,0.35)",
-                padding: "18px",
-                borderRadius: "20px",
-                textAlign: "left",
-                border: "1px solid rgba(255,255,255,0.12)",
-              }}
-            >
-              <h2 style={{ marginTop: 0 }}>🧾 Historial</h2>
-
-              {results.length === 0 && (
-                <p style={{ color: "#cbd5e1" }}>Aún no hay resultados.</p>
-              )}
-
-              {results.map((result, index) => (
-                <div
-                  key={index}
-                  style={{
-                    marginTop: "10px",
-                    padding: "12px",
-                    borderRadius: "14px",
-                    background: "rgba(255,255,255,0.08)",
-                  }}
-                >
-                  👤 <strong>{result.user}</strong> sacó{" "}
-                  <strong style={{ color: "#facc15" }}>{result.group.name}</strong>
-                  <div style={{ marginTop: "6px", color: "#dbeafe" }}>
-                    {result.group.teams.join(" · ")}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div
-            style={{
-              background: "rgba(15,23,42,0.78)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              borderRadius: "28px",
-              padding: "24px",
-              boxShadow: "0 25px 80px rgba(0,0,0,0.55)",
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>📋 Grupos restantes</h2>
-
-            {groups.length === 0 && <p>Ya no quedan grupos disponibles.</p>}
-
-            {groups.map((group) => (
+            {participant && !isUsersTurn && !alreadyUsed && (
               <div
-                key={group.name}
                 style={{
-                  marginTop: "14px",
-                  padding: "14px",
-                  borderRadius: "18px",
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  marginTop: "20px",
+                  background: "rgba(251,191,36,0.15)",
+                  border: "1px solid rgba(251,191,36,0.4)",
+                  padding: "16px",
+                  borderRadius: "16px",
+                  maxWidth: "420px",
+                  marginInline: "auto",
                 }}
               >
-                <strong style={{ color: "#facc15", fontSize: "18px" }}>
-                  {group.name}
-                </strong>
-
-                <div style={{ marginTop: "8px", color: "#dbeafe" }}>
-                  {group.teams.map((team) => (
-                    <div key={team}>⚽ {team}</div>
-                  ))}
-                </div>
+                ⏳ Todavía no es tu turno.
+                <br />
+                Turno actual: <strong>{currentTurn}</strong>
+                <br />
+                Tu turno: <strong>{participant.order}</strong>
               </div>
+            )}
+          </div>
+        )}
+
+        {winner && !alreadyUsed && (
+          <div
+            style={{
+              marginTop: 30,
+              background: "rgba(250,204,21,0.18)",
+              padding: 24,
+              borderRadius: 24,
+            }}
+          >
+            <h2>🏆 ¡Ganaste!</h2>
+            <h1 style={{ color: "#facc15" }}>{winner.name}</h1>
+            {winner.teams.map((team) => (
+              <div key={team}>⚽ {team}</div>
             ))}
           </div>
+        )}
+
+        <div
+          style={{
+            marginTop: 40,
+            background: "rgba(15,23,42,0.78)",
+            padding: 24,
+            borderRadius: 28,
+            textAlign: "left",
+          }}
+        >
+          <h2>🧾 Historial</h2>
+          {results.length === 0 && <p>Aún no hay resultados.</p>}
+          {results.map((result, index) => (
+            <div
+              key={index}
+              style={{
+                marginTop: 10,
+                padding: 12,
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.08)",
+              }}
+            >
+              👤 <strong>{result.user}</strong> sacó{" "}
+              <strong style={{ color: "#facc15" }}>{result.group.name}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            marginTop: 28,
+            background: "rgba(15,23,42,0.78)",
+            padding: 24,
+            borderRadius: 28,
+            textAlign: "left",
+          }}
+        >
+          <h2>📋 Grupos restantes</h2>
+          {groups.length === 0 && <p>Ya no quedan grupos disponibles.</p>}
+
+          {groups.map((group) => (
+            <div
+              key={group.name}
+              style={{
+                marginTop: 14,
+                padding: 14,
+                borderRadius: 18,
+                background: "rgba(255,255,255,0.08)",
+              }}
+            >
+              <strong style={{ color: "#facc15", fontSize: 18 }}>
+                {group.name}
+              </strong>
+              <div style={{ marginTop: 8, color: "#dbeafe" }}>
+                {group.teams.map((team) => (
+                  <div key={team}>⚽ {team}</div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
