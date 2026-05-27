@@ -284,7 +284,7 @@ export default function App() {
           SORTEO MUNDIAL 2026
         </div>
 
-        <h1 style={{ fontSize: "50px", margin: 0 }}>🎡 Ruleta Mundialista</h1>
+        <h1 style={{ fontSize: "38px", margin: 0 }}>🎡 Ruleta Mundialista</h1>
 
         {spectatorMode ? (
           <p style={{ color: "#cbd5e1", fontSize: 15 }}>
