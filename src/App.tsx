@@ -318,6 +318,7 @@ export default function App() {
               filter: "drop-shadow(0 0 35px rgba(37,99,235,0.8))",
             }}
           >
+          {groups.length > 0 ? (
             <Wheel
               key={groups.length}
               mustStartSpinning={mustSpin}
@@ -335,6 +336,20 @@ export default function App() {
                 await saveResult();
               }}
             />
+          ) : (
+              <div
+                style={{
+                  padding: "40px",
+                  borderRadius: "24px",
+                  background: "rgba(250,204,21,0.15)",
+                  border: "1px solid rgba(250,204,21,0.45)",
+                  textAlign: "center",
+                }}
+              >
+                <h1>🏁 Sorteo terminado</h1>
+                <p>Todos los participantes ya realizaron su giro.</p>
+              </div>
+            )}
           </div>
 
           {!spectatorMode && (
@@ -357,7 +372,13 @@ export default function App() {
                 boxShadow: "0 0 30px rgba(251,146,60,0.65)",
               }}
             >
-              {mustSpin ? "Girando..." : alreadyUsed ? "YA UTILIZADO" : "GIRAR"}
+              {groups.length === 0
+                ? "SORTEO TERMINADO"
+                : mustSpin
+                ? "Girando..."
+                : alreadyUsed
+                ? "YA UTILIZADO"
+                : "GIRAR"}
             </button>
           )}
 
