@@ -31,17 +31,17 @@ const participants: Participant[] = [
 ];
 
 const initialGroups: Group[] = [
-  { name: "Grupo A", teams: ["México", "Corea del Sur", "Sudáfrica", "UEFA Playoff"] },
-  { name: "Grupo B", teams: ["Canadá", "Qatar", "Suiza", "UEFA Playoff"] },
+  { name: "Grupo A", teams: ["México", "Corea del Sur", "Sudáfrica", "Republica Checa"] },
+  { name: "Grupo B", teams: ["Canadá", "Qatar", "Suiza", "Bosnia"] },
   { name: "Grupo C", teams: ["Brasil", "Marruecos", "Haití", "Escocia"] },
-  { name: "Grupo D", teams: ["Estados Unidos", "Paraguay", "Australia", "UEFA Playoff"] },
+  { name: "Grupo D", teams: ["Estados Unidos", "Paraguay", "Australia", "Turquia"] },
   { name: "Grupo E", teams: ["Alemania", "Costa de Marfil", "Ecuador", "Curaçao"] },
-  { name: "Grupo F", teams: ["Países Bajos", "Japón", "Túnez", "UEFA Playoff"] },
+  { name: "Grupo F", teams: ["Países Bajos", "Japón", "Túnez", "Suecia"] },
   { name: "Grupo G", teams: ["Bélgica", "Egipto", "Irán", "Nueva Zelanda"] },
   { name: "Grupo H", teams: ["España", "Arabia Saudita", "Uruguay", "Cabo Verde"] },
-  { name: "Grupo I", teams: ["Francia", "Senegal", "Noruega", "Intercontinental Playoff"] },
+  { name: "Grupo I", teams: ["Francia", "Senegal", "Noruega", "Irak"] },
   { name: "Grupo J", teams: ["Argentina", "Argelia", "Austria", "Jordania"] },
-  { name: "Grupo K", teams: ["Portugal", "Uzbekistán", "Colombia", "Intercontinental Playoff"] },
+  { name: "Grupo K", teams: ["Portugal", "Uzbekistán", "Colombia", "Congo"] },
   { name: "Grupo L", teams: ["Inglaterra", "Croacia", "Ghana", "Panamá"] },
 ];
 
