@@ -16,18 +16,18 @@ type Participant = { slug: string; name: string; order: number };
 type Result = { user: string; group: Group };
 
 const participants: Participant[] = [
-  { slug: "eduardo-p", name: "Eduardo P", order: 3 },
-  { slug: "claudia-s", name: "Claudia S", order: 6 },
-  { slug: "jorge-e", name: "Jorge E", order: 7 },
-  { slug: "coque-e", name: "Coque E", order: 12 },
-  { slug: "daniel-e", name: "Daniel E", order: 9 },
-  { slug: "edith-p", name: "Edith P", order: 1 },
-  { slug: "pilar-p", name: "Pilar P", order: 4 },
-  { slug: "sergio-s", name: "Sergio S", order: 11 },
+  { slug: "edith", name: "Edith P", order: 1 },
+  { slug: "ale", name: "Alejandra", order: 2 },
+  { slug: "lalo", name: "Eduardo P", order: 3 },
+  { slug: "pilin", name: "Pilar P", order: 4 },
+  { slug: "jorge-b", name: "Jorge Beck", order: 5 },
+  { slug: "claudia", name: "Claudia", order: 6 },
+  { slug: "jorge-e", name: "Jorge", order: 7 },
   { slug: "carlos", name: "Carlos", order: 8 },
-  { slug: "alejandra-i", name: "Alejandra I", order: 2 },
-  { slug: "jorge-beck", name: "Jorge Beck", order: 5 },
-  { slug: "isaac-e", name: "Isaac E", order: 10 },
+  { slug: "daniboy", name: "Daniel E", order: 9 },
+  { slug: "isaac", name: "Isaac", order: 10 },
+  { slug: "sergio", name: "Sergio", order: 11 },
+  { slug: "coke-e", name: "Coque", order: 12 },
 ];
 
 const initialGroups: Group[] = [
